@@ -12,11 +12,10 @@ import java.awt.event.MouseListener;
 
 /**
  * Класс, реализующий экранную форму «Каталог коньков».
- * Содержит обработчики событий для кнопок, меню,
- * поля поиска, выпадающих списков и таблицы.
+ * Содержит обработчики событий и обработку исключительных ситуаций.
  *
  * @author Белякова С.Е.
- * @version 2.0
+ * @version 5.0
  */
 public class SkateApp extends JFrame {
 
@@ -43,7 +42,7 @@ public class SkateApp extends JFrame {
     private JTextArea textArea;
 
     /**
-     * Конструктор. Создаёт компоненты, размещает их и подключает слушателей.
+     * Конструктор. Создаёт компоненты и подключает слушателей.
      */
     public SkateApp() {
         super("Каталог коньков");
@@ -81,7 +80,6 @@ public class SkateApp extends JFrame {
         saveMenuIt = new JMenuItem("Сохранить");
         exitMenuIt = new JMenuItem("Выйти");
 
-        // Кнопки: иконка + текст
         buttonSave    = new JButton("Сохранить",  new ImageIcon("./16x16/29.png"));
         buttonOpen    = new JButton("Открыть",    new ImageIcon("./16x16/46.png"));
         buttonProfile = new JButton("Профиль",    new ImageIcon("./16x16/11.png"));
@@ -103,7 +101,6 @@ public class SkateApp extends JFrame {
         getContentPane().add(new JScrollPane(table), BorderLayout.CENTER);
         getContentPane().add(new JScrollPane(textArea), BorderLayout.EAST);
 
-        // ===== Подключение слушателей событий (лаба №3) =====
         ActionListener actionHandler = new ActionHandler();
         MouseListener mouseHandler = new MouseHandler();
         ListSelectionListener listHandler = new ListHandler();
@@ -125,7 +122,6 @@ public class SkateApp extends JFrame {
         sortingCombo.addActionListener(actionHandler);
 
         searchField.addMouseListener(mouseHandler);
-
         table.getSelectionModel().addListSelectionListener(listHandler);
     }
 
@@ -193,58 +189,33 @@ public class SkateApp extends JFrame {
     }
 
     /**
-     * Обработчик действий для кнопок и пунктов меню.
+     * Проверка заполненности полей и корректности цены.
+     *
+     * @param brand бренд
+     * @param model модель
+     * @param size  размер
+     * @param level уровень
+     * @param price цена
+     * @throws EmptyFieldException   если какое-либо поле пустое
+     * @throws InvalidPriceException если цена не число или меньше нуля
      */
-    private class ActionHandler implements ActionListener {
-        public void actionPerformed(ActionEvent e) {
-            Object src = e.getSource();
+    private void validate(String brand, String model, String size,
+                          String level, String price)
+            throws EmptyFieldException, InvalidPriceException {
 
-            // ===== Меню «Файл» =====
-            if (src == newMenuIt) {
-                tableModel.setRowCount(0);
-                textArea.setText("");
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Создан новый каталог");
-            } else if (src == openMenuIt) {
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Открытие каталога из файла");
-            } else if (src == saveMenuIt) {
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Сохранение каталога в файл");
-            } else if (src == exitMenuIt) {
-                dispose();
-            }
+        if (brand.isEmpty()) throw new EmptyFieldException("Поле «Бренд» не заполнено");
+        if (model.isEmpty()) throw new EmptyFieldException("Поле «Модель» не заполнено");
+        if (size.isEmpty())  throw new EmptyFieldException("Поле «Размер» не заполнено");
+        if (level.isEmpty()) throw new EmptyFieldException("Поле «Уровень» не заполнено");
+        if (price.isEmpty()) throw new EmptyFieldException("Поле «Цена» не заполнено");
 
-            // ===== Кнопки панели инструментов =====
-            else if (src == buttonSave) {
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Сохранение каталога коньков");
-            } else if (src == buttonOpen) {
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Открытие каталога коньков");
-            } else if (src == buttonProfile) {
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Профиль пользователя:\nБелякова С.Е.\nГруппа 5315");
-            } else if (src == buttonAdd) {
-                addRow();
-            } else if (src == buttonDelete) {
-                deleteRow();
-            } else if (src == buttonEdit) {
-                editRow();
-            } else if (src == buttonSearch) {
-                String criterion = (String) searchCombo.getSelectedItem();
-                String value = searchField.getText();
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Поиск по: " + criterion + "\nЗначение: " + value);
-            }
-
-            // ===== Выпадающие списки =====
-            else if (src == searchCombo) {
-                searchField.setText("Введите данные");
-            } else if (src == sortingCombo) {
-                JOptionPane.showMessageDialog(SkateApp.this,
-                        "Сортировка по: " + sortingCombo.getSelectedItem());
-            }
+        try {
+            int p = Integer.parseInt(price);
+            if (p < 0) throw new InvalidPriceException(
+                    "Цена не может быть отрицательной: " + p);
+        } catch (NumberFormatException e) {
+            throw new InvalidPriceException(
+                    "Цена должна быть целым числом: " + price);
         }
     }
 
@@ -269,14 +240,24 @@ public class SkateApp extends JFrame {
         int option = JOptionPane.showConfirmDialog(SkateApp.this, message,
                 "Добавить модель коньков", JOptionPane.OK_CANCEL_OPTION);
 
-        if (option == JOptionPane.OK_OPTION) {
-            tableModel.addRow(new Object[]{
-                    brandF.getText(),
-                    modelF.getText(),
-                    sizeF.getText(),
-                    levelF.getText(),
-                    priceF.getText()
-            });
+        if (option != JOptionPane.OK_OPTION) return;
+
+        try {
+            String brand = brandF.getText().trim();
+            String model = modelF.getText().trim();
+            String size  = sizeF.getText().trim();
+            String level = levelF.getText().trim();
+            String price = priceF.getText().trim();
+
+            validate(brand, model, size, level, price);
+
+            tableModel.addRow(new Object[]{brand, model, size, level, price});
+        } catch (EmptyFieldException ex) {
+            JOptionPane.showMessageDialog(SkateApp.this, ex.getMessage(),
+                    "Пустое поле", JOptionPane.WARNING_MESSAGE);
+        } catch (InvalidPriceException ex) {
+            JOptionPane.showMessageDialog(SkateApp.this, ex.getMessage(),
+                    "Ошибка цены", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -284,20 +265,22 @@ public class SkateApp extends JFrame {
      * Удаление выбранной строки с подтверждением.
      */
     private void deleteRow() {
-        int row = table.getSelectedRow();
-        if (row == -1) {
+        try {
+            int row = table.getSelectedRow();
+            if (row == -1) throw new NullPointerException("Строка не выбрана");
+
+            int option = JOptionPane.showConfirmDialog(SkateApp.this,
+                    "Удалить выбранную модель?", "Подтверждение удаления",
+                    JOptionPane.YES_NO_OPTION);
+
+            if (option == JOptionPane.YES_OPTION) {
+                tableModel.removeRow(row);
+                textArea.setText("");
+            }
+        } catch (NullPointerException ex) {
             JOptionPane.showMessageDialog(SkateApp.this,
-                    "Сначала выберите строку в таблице");
-            return;
-        }
-
-        int option = JOptionPane.showConfirmDialog(SkateApp.this,
-                "Удалить выбранную модель?", "Подтверждение удаления",
-                JOptionPane.YES_NO_OPTION);
-
-        if (option == JOptionPane.YES_OPTION) {
-            tableModel.removeRow(row);
-            textArea.setText("");
+                    "Сначала выберите строку в таблице",
+                    "Строка не выбрана", JOptionPane.WARNING_MESSAGE);
         }
     }
 
@@ -305,42 +288,111 @@ public class SkateApp extends JFrame {
      * Редактирование выбранной строки через диалоговое окно.
      */
     private void editRow() {
-        int row = table.getSelectedRow();
-        if (row == -1) {
+        try {
+            int row = table.getSelectedRow();
+            if (row == -1) throw new NullPointerException("Строка не выбрана");
+
+            JTextField brandF = new JTextField((String) tableModel.getValueAt(row, 0));
+            JTextField modelF = new JTextField((String) tableModel.getValueAt(row, 1));
+            JTextField sizeF  = new JTextField((String) tableModel.getValueAt(row, 2));
+            JTextField levelF = new JTextField((String) tableModel.getValueAt(row, 3));
+            JTextField priceF = new JTextField((String) tableModel.getValueAt(row, 4));
+
+            Object[] message = {
+                    "Бренд:",   brandF,
+                    "Модель:",  modelF,
+                    "Размер:",  sizeF,
+                    "Уровень:", levelF,
+                    "Цена:",    priceF
+            };
+
+            int option = JOptionPane.showConfirmDialog(SkateApp.this, message,
+                    "Редактировать модель", JOptionPane.OK_CANCEL_OPTION);
+
+            if (option != JOptionPane.OK_OPTION) return;
+
+            String brand = brandF.getText().trim();
+            String model = modelF.getText().trim();
+            String size  = sizeF.getText().trim();
+            String level = levelF.getText().trim();
+            String price = priceF.getText().trim();
+
+            validate(brand, model, size, level, price);
+
+            tableModel.setValueAt(brand, row, 0);
+            tableModel.setValueAt(model, row, 1);
+            tableModel.setValueAt(size,  row, 2);
+            tableModel.setValueAt(level, row, 3);
+            tableModel.setValueAt(price, row, 4);
+        } catch (NullPointerException ex) {
             JOptionPane.showMessageDialog(SkateApp.this,
-                    "Сначала выберите строку в таблице");
-            return;
+                    "Сначала выберите строку в таблице",
+                    "Строка не выбрана", JOptionPane.WARNING_MESSAGE);
+        } catch (EmptyFieldException ex) {
+            JOptionPane.showMessageDialog(SkateApp.this, ex.getMessage(),
+                    "Пустое поле", JOptionPane.WARNING_MESSAGE);
+        } catch (InvalidPriceException ex) {
+            JOptionPane.showMessageDialog(SkateApp.this, ex.getMessage(),
+                    "Ошибка цены", JOptionPane.ERROR_MESSAGE);
         }
+    }
 
-        JTextField brandF = new JTextField((String) tableModel.getValueAt(row, 0));
-        JTextField modelF = new JTextField((String) tableModel.getValueAt(row, 1));
-        JTextField sizeF  = new JTextField((String) tableModel.getValueAt(row, 2));
-        JTextField levelF = new JTextField((String) tableModel.getValueAt(row, 3));
-        JTextField priceF = new JTextField((String) tableModel.getValueAt(row, 4));
+    /**
+     * Проверка поискового запроса.
+     */
+    private void checkSearch() throws EmptyFieldException {
+        String value = searchField.getText().trim();
+        if (value.isEmpty() || value.equals("Введите данные")) {
+            throw new EmptyFieldException("Введите данные для поиска");
+        }
+    }
 
-        Object[] message = {
-                "Бренд:",   brandF,
-                "Модель:",  modelF,
-                "Размер:",  sizeF,
-                "Уровень:", levelF,
-                "Цена:",    priceF
-        };
+    /**
+     * Обработчик действий для кнопок и пунктов меню.
+     */
+    private class ActionHandler implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            Object src = e.getSource();
 
-        int option = JOptionPane.showConfirmDialog(SkateApp.this, message,
-                "Редактировать модель", JOptionPane.OK_CANCEL_OPTION);
-
-        if (option == JOptionPane.OK_OPTION) {
-            tableModel.setValueAt(brandF.getText(), row, 0);
-            tableModel.setValueAt(modelF.getText(), row, 1);
-            tableModel.setValueAt(sizeF.getText(),  row, 2);
-            tableModel.setValueAt(levelF.getText(), row, 3);
-            tableModel.setValueAt(priceF.getText(), row, 4);
+            if (src == newMenuIt) {
+                tableModel.setRowCount(0);
+                textArea.setText("");
+                JOptionPane.showMessageDialog(SkateApp.this, "Создан новый каталог");
+            } else if (src == openMenuIt || src == buttonOpen) {
+                FileLoader.load(SkateApp.this, tableModel);
+            } else if (src == saveMenuIt || src == buttonSave) {
+                FileSaver.save(SkateApp.this, tableModel);
+            } else if (src == buttonProfile) {
+                JOptionPane.showMessageDialog(SkateApp.this,
+                        "Профиль пользователя:\nБелякова С.Е.\nГруппа 5315");
+            } else if (src == buttonAdd) {
+                addRow();
+            } else if (src == buttonDelete) {
+                deleteRow();
+            } else if (src == buttonEdit) {
+                editRow();
+            } else if (src == buttonSearch) {
+                try {
+                    checkSearch();
+                    String criterion = (String) searchCombo.getSelectedItem();
+                    String value = searchField.getText();
+                    JOptionPane.showMessageDialog(SkateApp.this,
+                            "Поиск по: " + criterion + "\nЗначение: " + value);
+                } catch (EmptyFieldException ex) {
+                    JOptionPane.showMessageDialog(SkateApp.this, ex.getMessage(),
+                            "Пустой запрос", JOptionPane.WARNING_MESSAGE);
+                }
+            } else if (src == searchCombo) {
+                searchField.setText("Введите данные");
+            } else if (src == sortingCombo) {
+                JOptionPane.showMessageDialog(SkateApp.this,
+                        "Сортировка по: " + sortingCombo.getSelectedItem());
+            }
         }
     }
 
     /**
      * Обработчик мыши для поля поиска.
-     * По клику очищает текст-подсказку.
      */
     private class MouseHandler implements MouseListener {
         public void mouseClicked(MouseEvent e) {
@@ -356,40 +408,24 @@ public class SkateApp extends JFrame {
 
     /**
      * Обработчик выбора строки в таблице.
-     * Выводит информацию о выбранной модели в текстовую область.
      */
     private class ListHandler implements ListSelectionListener {
         public void valueChanged(ListSelectionEvent e) {
             if (e.getValueIsAdjusting()) return;
-
             int row = table.getSelectedRow();
-            if (row == -1) {
-                textArea.setText("");
-                return;
-            }
-
-            String brand = (String) tableModel.getValueAt(row, 0);
-            String model = (String) tableModel.getValueAt(row, 1);
-            String size  = (String) tableModel.getValueAt(row, 2);
-            String level = (String) tableModel.getValueAt(row, 3);
-            String price = (String) tableModel.getValueAt(row, 4);
+            if (row == -1) { textArea.setText(""); return; }
 
             textArea.setText(
                     "Выбранная модель:\n" +
-                    "Бренд: " + brand + "\n" +
-                    "Модель: " + model + "\n" +
-                    "Размер: " + size + "\n" +
-                    "Уровень: " + level + "\n" +
-                    "Цена: " + price + " руб.\n"
+                    "Бренд: " + tableModel.getValueAt(row, 0) + "\n" +
+                    "Модель: " + tableModel.getValueAt(row, 1) + "\n" +
+                    "Размер: " + tableModel.getValueAt(row, 2) + "\n" +
+                    "Уровень: " + tableModel.getValueAt(row, 3) + "\n" +
+                    "Цена: " + tableModel.getValueAt(row, 4) + " руб.\n"
             );
         }
     }
 
-    /**
-     * Точка входа в приложение.
-     *
-     * @param args аргументы командной строки
-     */
     public static void main(String[] args) {
         SkateApp app = new SkateApp();
         app.setVisible(true);
