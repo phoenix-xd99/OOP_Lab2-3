@@ -12,7 +12,8 @@ import java.awt.event.MouseListener;
 
 /**
  * Класс, реализующий экранную форму «Каталог коньков».
- * Содержит обработчики событий и обработку исключительных ситуаций.
+ * Содержит обработчики событий, обработку исключений,
+ * сохранение и загрузку данных из файла.
  *
  * @author Белякова С.Е.
  * @version 5.0
@@ -21,12 +22,12 @@ public class SkateApp extends JFrame {
 
     private JMenuBar menuBar;
     private JMenu fileMenu;
-    private JMenuItem newMenuIt, openMenuIt, saveMenuIt, exitMenuIt;
+    private JMenuItem newMenuIt, openMenuIt, saveMenuIt, saveAsMenuIt, exitMenuIt;
 
     private JToolBar toolBar;
     private Box box1, box2, box3;
 
-    private JButton buttonSave, buttonOpen, buttonAdd,
+    private JButton buttonSave, buttonSaveAs, buttonOpen, buttonAdd,
                     buttonEdit, buttonDelete, buttonProfile, buttonSearch;
 
     private JLabel searchLabel;
@@ -41,13 +42,16 @@ public class SkateApp extends JFrame {
 
     private JTextArea textArea;
 
+    /** Путь к текущему открытому файлу (null — файл ещё не выбран). */
+    private String currentFile = null;
+
     /**
      * Конструктор. Создаёт компоненты и подключает слушателей.
      */
     public SkateApp() {
         super("Каталог коньков");
 
-        setSize(1200, 600);
+        setSize(1250, 600);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
         String[] searchItems = {"Ключевому слову", "Бренду", "Модели",
@@ -73,21 +77,24 @@ public class SkateApp extends JFrame {
         textArea.setWrapStyleWord(true);
         textArea.setEditable(false);
 
-        menuBar    = new JMenuBar();
-        fileMenu   = new JMenu("Файл");
-        newMenuIt  = new JMenuItem("Новое");
-        openMenuIt = new JMenuItem("Открыть");
-        saveMenuIt = new JMenuItem("Сохранить");
-        exitMenuIt = new JMenuItem("Выйти");
+        menuBar      = new JMenuBar();
+        fileMenu     = new JMenu("Файл");
+        newMenuIt    = new JMenuItem("Новое");
+        openMenuIt   = new JMenuItem("Открыть");
+        saveMenuIt   = new JMenuItem("Сохранить");
+        saveAsMenuIt = new JMenuItem("Сохранить как...");
+        exitMenuIt   = new JMenuItem("Выйти");
 
-        buttonSave    = new JButton("Сохранить",  new ImageIcon("./16x16/29.png"));
-        buttonOpen    = new JButton("Открыть",    new ImageIcon("./16x16/46.png"));
-        buttonProfile = new JButton("Профиль",    new ImageIcon("./16x16/11.png"));
-        buttonAdd     = new JButton("Добавить",   new ImageIcon("./16x16/20.png"));
-        buttonDelete  = new JButton("Удалить",    new ImageIcon("./16x16/17.png"));
-        buttonEdit    = new JButton("Изменить",   new ImageIcon("./16x16/36.png"));
+        buttonSave    = new JButton("Сохранить",    new ImageIcon("./16x16/29.png"));
+        buttonSaveAs  = new JButton("Сохранить как", new ImageIcon("./16x16/29.png"));
+        buttonOpen    = new JButton("Открыть",      new ImageIcon("./16x16/46.png"));
+        buttonProfile = new JButton("Профиль",      new ImageIcon("./16x16/11.png"));
+        buttonAdd     = new JButton("Добавить",     new ImageIcon("./16x16/20.png"));
+        buttonDelete  = new JButton("Удалить",      new ImageIcon("./16x16/17.png"));
+        buttonEdit    = new JButton("Изменить",     new ImageIcon("./16x16/36.png"));
 
-        buttonSave.setToolTipText("Сохранить каталог коньков");
+        buttonSave.setToolTipText("Сохранить в текущий файл");
+        buttonSaveAs.setToolTipText("Сохранить в новый файл");
         buttonOpen.setToolTipText("Открыть каталог коньков");
         buttonAdd.setToolTipText("Добавить модель");
         buttonEdit.setToolTipText("Редактировать модель");
@@ -108,9 +115,11 @@ public class SkateApp extends JFrame {
         newMenuIt.addActionListener(actionHandler);
         openMenuIt.addActionListener(actionHandler);
         saveMenuIt.addActionListener(actionHandler);
+        saveAsMenuIt.addActionListener(actionHandler);
         exitMenuIt.addActionListener(actionHandler);
 
         buttonSave.addActionListener(actionHandler);
+        buttonSaveAs.addActionListener(actionHandler);
         buttonOpen.addActionListener(actionHandler);
         buttonAdd.addActionListener(actionHandler);
         buttonEdit.addActionListener(actionHandler);
@@ -132,6 +141,7 @@ public class SkateApp extends JFrame {
         fileMenu.add(newMenuIt);
         fileMenu.add(openMenuIt);
         fileMenu.add(saveMenuIt);
+        fileMenu.add(saveAsMenuIt);
         fileMenu.addSeparator();
         fileMenu.add(exitMenuIt);
 
@@ -148,6 +158,8 @@ public class SkateApp extends JFrame {
 
         box1 = Box.createHorizontalBox();
         box1.add(buttonSave);
+        box1.add(Box.createHorizontalStrut(3));
+        box1.add(buttonSaveAs);
         box1.add(Box.createHorizontalStrut(3));
         box1.add(buttonOpen);
         box1.add(Box.createHorizontalStrut(3));
@@ -354,17 +366,41 @@ public class SkateApp extends JFrame {
         public void actionPerformed(ActionEvent e) {
             Object src = e.getSource();
 
+            // ===== Меню «Файл» =====
             if (src == newMenuIt) {
                 tableModel.setRowCount(0);
                 textArea.setText("");
+                currentFile = null;
                 JOptionPane.showMessageDialog(SkateApp.this, "Создан новый каталог");
-            } else if (src == openMenuIt || src == buttonOpen) {
-                FileLoader.load(SkateApp.this, tableModel);
-            } else if (src == saveMenuIt || src == buttonSave) {
-                FileSaver.save(SkateApp.this, tableModel);
-            } else if (src == buttonProfile) {
+            }
+
+            // ===== Открыть =====
+            else if (src == openMenuIt || src == buttonOpen) {
+                String f = FileLoader.load(SkateApp.this, tableModel);
+                if (f != null) currentFile = f;
+            }
+
+            // ===== Сохранить (в текущий файл) =====
+            else if (src == saveMenuIt || src == buttonSave) {
+                String f = FileSaver.save(SkateApp.this, tableModel, currentFile);
+                if (f != null) currentFile = f;
+            }
+
+            // ===== Сохранить как (всегда спрашивает) =====
+            else if (src == saveAsMenuIt || src == buttonSaveAs) {
+                String f = FileSaver.save(SkateApp.this, tableModel, null);
+                if (f != null) currentFile = f;
+            }
+
+            // ===== Выйти =====
+            else if (src == exitMenuIt) {
+                dispose();
+            }
+
+            // ===== Остальные кнопки =====
+            else if (src == buttonProfile) {
                 JOptionPane.showMessageDialog(SkateApp.this,
-                        "Профиль пользователя:\nБелякова С.Е.\nГруппа 5315");
+                        "Профиль пользователя:\nБелякова С.Е.\nГруппа 1307");
             } else if (src == buttonAdd) {
                 addRow();
             } else if (src == buttonDelete) {
@@ -426,6 +462,11 @@ public class SkateApp extends JFrame {
         }
     }
 
+    /**
+     * Точка входа в приложение.
+     *
+     * @param args аргументы командной строки
+     */
     public static void main(String[] args) {
         SkateApp app = new SkateApp();
         app.setVisible(true);
