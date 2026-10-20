@@ -6,55 +6,59 @@ import java.awt.*;
 import java.io.*;
 
 /**
- * Класс для загрузки данных из текстового файла в таблицу.
- * Использует FileDialog для выбора файла и BufferedReader для чтения.
+ * Класс для сохранения данных таблицы в текстовый файл.
+ * Использует FileDialog для выбора файла и BufferedWriter для записи.
  *
  * @author Белякова С.Е.
- * @version 1.0
+ * @version 1.1
  */
-public class FileLoader {
+public class FileSaver {
 
     /**
-     * Загрузка данных из файла в таблицу.
+     * Сохранение содержимого таблицы в файл.
+     * Если передан известный путь — сохраняет без диалога.
+     * Иначе открывает диалог выбора файла.
      *
-     * @param parent     родительское окно для диалога
-     * @param tableModel модель таблицы, куда загружаются данные
+     * @param parent      родительское окно
+     * @param tableModel  модель таблицы
+     * @param knownFile   известный путь к файлу (может быть null)
+     * @return путь к сохранённому файлу или null при отмене
      */
-    public static void load(Frame parent, DefaultTableModel tableModel) {
-        FileDialog dialog = new FileDialog(parent, "Открытие каталога", FileDialog.LOAD);
-        dialog.setFile("*.txt");
-        dialog.setVisible(true);
+    public static String save(Frame parent, DefaultTableModel tableModel, String knownFile) {
+        String fileName = knownFile;
 
-        String fileName = dialog.getDirectory() + dialog.getFile();
-        if (dialog.getFile() == null) return;
+        if (fileName == null) {
+            FileDialog dialog = new FileDialog(parent, "Сохранение каталога", FileDialog.SAVE);
+            dialog.setFile("skates.txt");
+            dialog.setVisible(true);
+
+            if (dialog.getFile() == null) return null;
+            fileName = dialog.getDirectory() + dialog.getFile();
+        }
 
         try {
-            // Очищаем таблицу перед загрузкой
-            tableModel.setRowCount(0);
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
 
-            BufferedReader reader = new BufferedReader(new FileReader(fileName));
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
-                String[] parts = line.split("\\|");
-                if (parts.length == 5) {
-                    tableModel.addRow(parts);
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                StringBuilder line = new StringBuilder();
+                for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                    line.append(tableModel.getValueAt(i, j));
+                    if (j < tableModel.getColumnCount() - 1) line.append("|");
                 }
+                writer.write(line.toString());
+                writer.newLine();
             }
-
-            reader.close();
+            writer.close();
 
             JOptionPane.showMessageDialog(parent,
-                    "Данные успешно загружены из файла:\n" + fileName);
-        } catch (FileNotFoundException ex) {
-            JOptionPane.showMessageDialog(parent,
-                    "Файл не найден: " + fileName,
-                    "Ошибка", JOptionPane.ERROR_MESSAGE);
+                    "Данные успешно сохранены в файл:\n" + fileName);
+            return fileName;
+
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(parent,
-                    "Ошибка чтения из файла: " + ex.getMessage(),
+                    "Ошибка записи в файл: " + ex.getMessage(),
                     "Ошибка", JOptionPane.ERROR_MESSAGE);
+            return null;
         }
     }
 }
