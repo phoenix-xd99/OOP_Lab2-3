@@ -13,10 +13,10 @@ import java.awt.event.MouseListener;
 /**
  * Класс, реализующий экранную форму «Каталог коньков».
  * Содержит обработчики событий, обработку исключений,
- * сохранение и загрузку данных из файла.
+ * сохранение и загрузку данных из XML-файла.
  *
  * @author Белякова С.Е.
- * @version 5.0
+ * @version 6.0
  */
 public class SkateApp extends JFrame {
 
@@ -93,9 +93,9 @@ public class SkateApp extends JFrame {
         buttonDelete  = new JButton("Удалить",      new ImageIcon("./16x16/17.png"));
         buttonEdit    = new JButton("Изменить",     new ImageIcon("./16x16/36.png"));
 
-        buttonSave.setToolTipText("Сохранить в текущий файл");
-        buttonSaveAs.setToolTipText("Сохранить в новый файл");
-        buttonOpen.setToolTipText("Открыть каталог коньков");
+        buttonSave.setToolTipText("Сохранить в текущий XML-файл");
+        buttonSaveAs.setToolTipText("Сохранить в новый XML-файл");
+        buttonOpen.setToolTipText("Открыть каталог коньков из XML");
         buttonAdd.setToolTipText("Добавить модель");
         buttonEdit.setToolTipText("Редактировать модель");
         buttonDelete.setToolTipText("Удалить модель");
