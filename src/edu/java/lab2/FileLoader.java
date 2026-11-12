@@ -1,63 +1,89 @@
 package edu.java.lab2;
 
-import javax.swing.*;
+import java.awt.FileDialog;
+import java.awt.Frame;
+import java.io.File;
+import java.io.IOException;
+
+import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
-import java.awt.*;
-import java.io.*;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
- * Класс для загрузки данных из текстового файла в таблицу.
- * Использует FileDialog для выбора файла и BufferedReader для чтения.
+ * Загрузка каталога коньков из XML-файла с использованием DOM.
  *
  * @author Белякова С.Е.
- * @version 1.1
+ * @version 6.0
  */
 public class FileLoader {
 
     /**
-     * Загрузка данных из файла в таблицу.
+     * Запрашивает у пользователя XML-файл и загружает его данные в таблицу.
      *
-     * @param parent      родительское окно
-     * @param tableModel  модель таблицы
-     * @return путь к открытому файлу или null при отмене
+     * @param parent окно-владелец диалогов
+     * @param model  модель таблицы (очищается перед загрузкой)
+     * @return путь к загруженному файлу или null
+     *         (пользователь отказался или произошла ошибка)
      */
-    public static String load(Frame parent, DefaultTableModel tableModel) {
-        FileDialog dialog = new FileDialog(parent, "Открытие каталога", FileDialog.LOAD);
-        dialog.setFile("*.txt");
-        dialog.setVisible(true);
+    public static String load(Frame parent, DefaultTableModel model) {
+        FileDialog fd = new FileDialog(parent, "Открытие каталога", FileDialog.LOAD);
+        fd.setFile("*.xml");
+        fd.setVisible(true);
+        if (fd.getFile() == null) return null; // нажата «Отмена»
 
-        if (dialog.getFile() == null) return null;
-
-        String fileName = dialog.getDirectory() + dialog.getFile();
+        String fileName = fd.getDirectory() + fd.getFile();
 
         try {
-            tableModel.setRowCount(0);
+            // Создание парсера и чтение документа из файла
+            DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            Document doc = builder.parse(new File(fileName));
+            // Нормализация документа
+            doc.getDocumentElement().normalize();
 
-            BufferedReader reader = new BufferedReader(new FileReader(fileName));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
-                String[] parts = line.split("\\|");
-                if (parts.length == 5) {
-                    tableModel.addRow(parts);
-                }
+            if (!"skatelist".equals(doc.getDocumentElement().getNodeName())) {
+                JOptionPane.showMessageDialog(parent,
+                        "Файл не содержит каталог коньков (корневой элемент должен быть skatelist)",
+                        "Неверный формат", JOptionPane.WARNING_MESSAGE);
+                return null;
             }
-            reader.close();
 
-            JOptionPane.showMessageDialog(parent,
-                    "Данные успешно загружены из файла:\n" + fileName);
+            // Документ разобран успешно: очищаем таблицу и заполняем её
+            model.setRowCount(0);
+            NodeList list = doc.getElementsByTagName("skate");
+            for (int i = 0; i < list.getLength(); i++) {
+                NamedNodeMap attrs = list.item(i).getAttributes();
+                model.addRow(new Object[] {
+                        attr(attrs, "brand"), attr(attrs, "model"), attr(attrs, "size"),
+                        attr(attrs, "level"), attr(attrs, "price") });
+            }
             return fileName;
 
-        } catch (FileNotFoundException ex) {
-            JOptionPane.showMessageDialog(parent,
-                    "Файл не найден: " + fileName,
-                    "Ошибка", JOptionPane.ERROR_MESSAGE);
-            return null;
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(parent,
-                    "Ошибка чтения из файла: " + ex.getMessage(),
-                    "Ошибка", JOptionPane.ERROR_MESSAGE);
-            return null;
+        } catch (ParserConfigurationException e) {
+            error(parent, "Ошибка создания XML-парсера", e);
+        } catch (SAXException e) {
+            error(parent, "Файл не является корректным XML-документом", e);
+        } catch (IOException e) {
+            error(parent, "Ошибка чтения файла", e);
         }
+        return null;
+    }
+
+    /** Значение атрибута или пустая строка, если атрибута нет. */
+    private static String attr(NamedNodeMap attrs, String name) {
+        Node n = attrs.getNamedItem(name);
+        return (n == null) ? "" : n.getNodeValue();
+    }
+
+    private static void error(Frame parent, String msg, Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(parent, msg, "Ошибка", JOptionPane.ERROR_MESSAGE);
     }
 }
